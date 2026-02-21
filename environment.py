@@ -39,11 +39,8 @@ class BaseEnv:
             del self.model
         if hasattr(self, "data"):
             del self.data
-        if self.viewer is not None:
-            if self._render_mode == "offscreen":
-                del self.viewer
-            else:
-                self.viewer.close()
+        if self.viewer is not None and self._render_mode == "offscreen":
+            del self.viewer
 
         scene = self._create_scene()
         xml_string = scene.to_xml_string()
@@ -51,11 +48,17 @@ class BaseEnv:
         self.model = mujoco.MjModel.from_xml_string(xml_string, assets=assets)
         self.data = mujoco.MjData(self.model)
         if self._render_mode == "gui":
-            self.viewer = mujoco_viewer.MujocoViewer(self.model, self.data)
-            self.viewer.cam.fixedcamid = 0
-            self.viewer.cam.type = 2
-            self.viewer._render_every_frame = False
-            self.viewer._run_speed = 2
+            if self.viewer is None:
+                self.viewer = mujoco_viewer.MujocoViewer(self.model, self.data)
+                self.viewer.cam.fixedcamid = 0
+                self.viewer.cam.type = 2
+                self.viewer._render_every_frame = False
+                self.viewer._run_speed = 2
+            else:
+                # Update existing viewer with new model and data instead of closing/recreating
+                # This prevents segfault on M1 Macs
+                self.viewer.model = self.model
+                self.viewer.data = self.data
         elif self._render_mode == "offscreen":
             self.viewer = mujoco.Renderer(self.model, 128, 128)
 
