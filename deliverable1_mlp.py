@@ -31,16 +31,15 @@ class PositionMLP(nn.Module):
 
         return self.network(x)
 
-def train(model, dataloader, criterion, optimizer, device, epochs=50):
-    model.train()
-    epoch_losses = []
+def train(model, train_loader, test_loader, criterion, optimizer, device, epochs=50):
+    epoch_train_losses = []
+    epoch_test_losses = []
     
     for epoch in tqdm(range(epochs)):
-        running_loss = 0.0
-        for imgs_before, actions, target_pos, _ in dataloader:
-            imgs_before = imgs_before.to(device)
-            actions = actions.to(device)
-            target_pos = target_pos.to(device)
+        model.train()
+        running_train_loss = 0.0
+        for imgs_before, actions, target_pos, _ in train_loader:
+            imgs_before, actions, target_pos = imgs_before.to(device), actions.to(device), target_pos.to(device)
             
             optimizer.zero_grad()
             
@@ -52,15 +51,27 @@ def train(model, dataloader, criterion, optimizer, device, epochs=50):
             loss.backward()
             optimizer.step()
             
-            running_loss += loss.item()
+            running_train_loss += loss.item()
             
-        avg_epoch_loss = running_loss / len(dataloader)
-        epoch_losses.append(avg_epoch_loss)
+        avg_train_loss = running_train_loss / len(train_loader)
+        epoch_train_losses.append(avg_train_loss)
+
+        model.eval()
+        running_test_loss = 0.0
+        with torch.no_grad():
+            for imgs_before, actions, target_pos, _ in test_loader:
+                imgs_before, actions, target_pos = imgs_before.to(device), actions.to(device), target_pos.to(device)
+                predictions = model(imgs_before, actions)
+                loss = criterion(predictions, target_pos)
+                running_test_loss += loss.item()
+                
+        avg_test_loss = running_test_loss / len(test_loader)
+        epoch_test_losses.append(avg_test_loss)
         
         if (epoch + 1) % 10 == 0:
-            tqdm.write(f"Epoch [{epoch+1}/{epochs}], Training Loss: {avg_epoch_loss:.6f}")
+            tqdm.write(f"Epoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Test Loss: {avg_test_loss:.6f}")
             
-    return epoch_losses
+    return epoch_train_losses, epoch_test_losses
 
 def test(model, dataloader, criterion, device):
     model.eval()
@@ -106,7 +117,7 @@ if __name__ == "__main__":
 
     # Train the Model
     print("\nStarting Training...")
-    train_losses = train(model, train_loader, criterion, optimizer, device, epochs=50)
+    train_losses, test_losses = train(model, train_loader, test_loader, criterion, optimizer, device, epochs=50)
 
     # Test the Model
     test(model, test_loader, criterion, device)
@@ -118,9 +129,10 @@ if __name__ == "__main__":
     # Plot and save the loss curve
     plt.figure(figsize=(8, 5))
     plt.plot(range(1, len(train_losses) + 1), train_losses, label='Training Loss', color='blue')
+    plt.plot(range(1, len(test_losses) + 1), test_losses, label='Test Loss', color='red')
     plt.xlabel('Epochs')
     plt.ylabel('Mean Squared Error')
-    plt.title('Deliverable 1: MLP Training Loss Curve')
+    plt.title('Deliverable 1: MLP Loss Curves')
     plt.legend()
     plt.grid(True)
     plt.savefig("assets/mlp_loss_curve.png")
