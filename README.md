@@ -2,10 +2,86 @@
 
 This repository contains the implementation of three deep learning models designed to process raw visual states and physical actions in a simulated robotic environment. The goal is to predict the future state of objects on a table after a robotic arm executes a specific pushing action.
 
+## Getting Started
+
+### Usage Instructions
+
+**Step 1: Generate Training Data**
+
+Before training any models, you must first collect the dataset by running:
+```bash
+python data_collector.py
+```
+This will create a `data/` directory containing 1,000 simulated samples (4 parallel processes × 250 samples each). The collection process may take several minutes depending on your system.
+
+**Step 2: Train Models**
+
+Once data collection is complete, train each deliverable independently:
+
+```bash
+# Deliverable 1: MLP for position prediction
+python deliverable1_mlp.py
+
+# Deliverable 2: CNN for position prediction
+python deliverable2_cnn.py
+
+# Deliverable 3: Encoder-Decoder for image reconstruction
+python deliverable3_encoder_decoder.py
+```
+
+Each script will:
+* Load the dataset from `data/`
+* Train the model for the specified number of epochs
+* Save the trained weights to `models/`
+* Generate loss curves and evaluation results in `assets/`
+
+### Alternative: Download Pre-trained Models
+
+If you prefer to skip training, pre-trained model weights are available:
+
 ## Model Weights
 The trained model weights (`.pth` files) for all three deliverables are too large for GitHub and have been hosted externally. 
 * **[Download Model Weights Here](https://drive.google.com/drive/folders/1vRdnbELEyx2eLgmHo1ZS9KkYHVwp4oMY?usp=drive_link)** 
 * Download the files and place them inside a `models/` directory at the root of this project before running any evaluation scripts.
+
+---
+
+## Data Collection & Dataset Structure
+
+### Data Collection Pipeline (`data_collector.py`)
+
+The training data is generated through physics-based simulation using MuJoCo. The data collection process runs 4 parallel processes, each collecting 250 samples, for a total of **1,000 training examples**.
+
+**Collection Process:**
+1. For each sample, a random object (box or sphere) is spawned at a random position on the table
+2. The initial scene is captured as `img_before` (128×128 RGB image)
+3. A random pushing action (0-3) is selected and executed by the robotic arm
+4. The final scene is captured as `img_after` with the object's new position recorded
+5. The environment is reset for the next sample
+
+**Data Format:**
+Each sample contains:
+* **`imgs_before`**: Initial RGB image (3×128×128) before the push action
+* **`actions`**: One of 4 discrete pushing actions (0: Back→Front, 1: Front→Back, 2: Left→Right, 3: Right→Left)
+* **`positions`**: Final (x, y) coordinates of the object after the push
+* **`imgs_after`**: Final RGB image (3×128×128) after the push action
+
+The data is saved in 4 parts (`*_0.pt`, `*_1.pt`, `*_2.pt`, `*_3.pt`) for efficient parallel collection.
+
+### Dataset Class (`dataset.py`)
+
+The `RobotControlDataset` class handles loading and preprocessing:
+* **Loads** all 4 data parts and concatenates them into unified tensors
+* **One-hot encodes** the discrete actions into 4-dimensional vectors
+* **Normalizes** RGB images from `[0, 255]` to `[0.0, 1.0]` range for neural network training
+* **Returns** tuples of `(img_before, action, position, img_after)` for flexible training across all three deliverables
+
+**Dataset Statistics:**
+* Total samples: 1,000
+* Train/Test split: 800/200 (80%/20%)
+* Image dimensions: 3×128×128 (RGB)
+* Action space: 4 discrete directions (one-hot encoded)
+* Position space: 2D continuous coordinates (x, y)
 
 ---
 
