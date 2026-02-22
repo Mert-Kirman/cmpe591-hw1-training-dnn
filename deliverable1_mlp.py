@@ -92,6 +92,17 @@ def test(model, dataloader, criterion, device):
     return avg_test_loss
 
 if __name__ == "__main__":
+    import random
+    import numpy as np
+
+    # Lock down all sources of randomness for strict reproducibility
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(seed)
+    
     os.makedirs("models", exist_ok=True)
     os.makedirs("assets", exist_ok=True)
     
